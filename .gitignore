@@ -4,6 +4,9 @@ node_modules/
 # read-only cloned reference (the bot-kit we vendor from; not ours to commit)
 _reference/
 
+# internal planning / research notes — kept on disk, never pushed (not for judges)
+_local/
+
 # secrets & env
 .env
 .env.*
