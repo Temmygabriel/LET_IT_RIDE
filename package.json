@@ -1,0 +1,14 @@
+{
+  "name": "let-it-ride",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Let It Ride — auto-roll a winning Up/Down position across recurring DreamDEX Event Contract windows on Somnia. Non-custodial, guardrailed.",
+  "scripts": {
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@somnia-chain/markets-sdk": "^0.28.1",
+    "viem": "^2.55.19"
+  }
+}

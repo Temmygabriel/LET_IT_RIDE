@@ -1,0 +1,22 @@
+# deps
+node_modules/
+
+# read-only cloned reference (the bot-kit we vendor from; not ours to commit)
+_reference/
+
+# secrets & env
+.env
+.env.*
+!.env.example
+
+# build output
+dist/
+build/
+
+# misc
+*.log
+.DS_Store
+Thumbs.db
+
+# Claude Code local (machine-specific) settings
+.claude/settings.local.json

@@ -1,0 +1,5 @@
+# Normalize line endings: LF in the repo, so cloud (Linux) builds are clean.
+* text=auto eol=lf
+
+# Binary/generated files git shouldn't touch
+package-lock.json -diff
