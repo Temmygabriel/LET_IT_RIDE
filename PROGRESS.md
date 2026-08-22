@@ -33,8 +33,8 @@ Hackathon: **Somnia × DreamDEX Event Contracts.** Submit **Aug 25 – Sep 8, 20
 - [x] **SMOKE TEST PASSED** ✅ (Aug 22) — testnet live, SDK v0.28.1 connects, 10 live BTC/ETH markets read + one on-chain snapshot. Findings below.
 - [x] **Pushed to GitHub** ✅ → https://github.com/Temmygabriel/LET_IT_RIDE (commit `3256a8c`).
 - [x] **Smoke test moved into CI** ✅ → `.github/workflows/smoke.yml` runs it on GitHub's machines on every push (this is our "verify without touching the PC" pipeline).
-- [ ] **← NEXT: Vendor the `ec-core` helpers** into `src/ec/` (MIT-licensed, NOT on npm; rewire `config.ts` off dotenv/node:fs so it runs in browser + Worker too).
-- [ ] Build the core loop: place → watch settle → claim → decide → roll
+- [x] **Read the full base-SDK surface** (`index.d.ts` + `unified/exchange.d.ts` + `somniaMarketsClient.d.ts`) → **decided NOT to vendor `ec-core`** (see "PIVOT" below). The base SDK already has everything the wrapper did, in human units, browser/Worker-ready.
+- [ ] **← NEXT: Build the portable engine directly on `@somnia-chain/markets-sdk`** in `src/` (TypeScript, type-checked in CI): config → connect/attach-wallet → find-market → place → watch-settle → claim → decide → roll.
 - [ ] Frontend (Vite + React)
 - [ ] Always-on runner (Cloudflare Worker cron)
 - [ ] Demo video + README + SDK feedback report
@@ -193,6 +193,62 @@ await trader.voidMarket({ market })
 **Direction mapping to verify on live data:** YES = outcome 0, NO = outcome 1. Need to confirm which one = "price Up" for a given market (from the market symbol/outcome symbols). To check in the smoke test.
 
 ---
+
+## PIVOT (Aug 22, s2): build on the base SDK's UNIFIED layer, do NOT vendor ec-core
+
+After reading the full `@somnia-chain/markets-sdk@0.28.1` type surface, the plan to vendor `ec-core` is **dropped**. The base SDK's *unified* layer (`new SomniaMarkets(cfg)` → the `exchange` object) already provides, in **human units** and **browser/Worker-ready**, everything ec-core's wrapper gave us — plus purpose-built helpers that match Let It Ride almost 1:1. Less code, officially supported, nothing to port. The engine is a thin state machine over these calls.
+
+```ts
+import {
+  SomniaMarkets, SOMNIA_TESTNET_ADDRESSES, SOMNIA_TESTNET_PRICE_FEED,
+} from "@somnia-chain/markets-sdk";
+
+// 1) CONNECT (read-only at boot — no key). Addresses are a baked-in constant now.
+const exchange = new SomniaMarkets({
+  chain, wsRpcUrl: WS, indexerUrl: INDEXER,
+  addresses: SOMNIA_TESTNET_ADDRESSES, priceFeed: SOMNIA_TESTNET_PRICE_FEED,
+});
+await exchange.loadMarkets();
+const client = exchange.client;               // raw bigint-exact read tier
+
+// 2) ATTACH THE RIDE WALLET later (browser: on connect; Worker: from its secret).
+exchange.setSigner({ privateKey });           // pass {} to go back to read-only
+// exchange.trader  → raw write tier (throws if no signer)
+
+// 3) FIND the market to bet/roll into — one call does asset+window+venue scoping,
+//    returns live markets (expiry>now) soonest-first, so [0] = the current window.
+const [mkt] = await client.listLiveBinaryMarkets({ asset: "BTC", intervalSec: 300, venueId });
+//    (also: listBinaryVenueIds(), listBinaryAssets() to enumerate options)
+
+// 4) SIZE a stake → order ("bet $50 on Up"). side BUY_YES = Up, BUY_NO = Down.
+const q = await client.quoteBinaryStake({ marketId: mkt.marketId, side: "BUY_YES", stake: 50_000_000n /*$50×1e6*/ });
+// q → { yesPrice, quantity, protectiveLimit, ... }  |  null if unfillable
+
+// 5) PLACE. Two options:
+//   (a) human-unit unified (auto tick/lot align, NO-price inversion, our fee):
+await exchange.createOrder(`${mkt.symbol}#YES`, "market", "buy", shares, price,
+  { builder: OUR_ADDRESS, builderFeeBpsTimes1k });
+//   (b) raw, straight from the quote:
+await exchange.trader.placeOrder({ pool: mkt.pool, side: "BUY_YES",
+  price: q.yesPrice, quantity: q.quantity, orderType: 2 /*MARKET*/, builder, builderFeeBpsTimes1k });
+
+// 6) WATCH settlement — poll the authoritative on-chain read until resolved/voided:
+const oc = await client.getMarketOnchain(mkt.marketId);   // status/isResolved/isVoided/winningOutcome
+// or trader.getSettlement(marketId) for the SettlementRecord (winningOutcome only meaningful when !voided)
+
+// 7) CLAIM — one call returns ALL redeemable positions across settled markets,
+//    winners net of fee, void = half each, losers excluded. Feeds redeemMany directly.
+const claimable = await client.getClaimable(account);     // → [{ marketId, outcomeIdx, amount }, ...]
+if (claimable.length) await exchange.trader.redeemMany({ entries: claimable });
+//    (single-market human-unit alternative: exchange.redeem(`${sym}`, amount))
+
+// 8) DECIDE win/loss/void from the settlement, apply guardrails, roll to the next window.
+// Extras for the UI: client.getMarketResolution(marketId) → { openingAnswer, closingAnswer }
+//   = "Up from $X → $Y"; client.getOpenPositionsWithPnL(account) / getBinaryPositionPnL for the ride summary;
+//   exchange.fetchBalance() → balances keyed by currency AND by tradable symbol ("...#YES").
+```
+
+**Direction mapping (strong signal, still to hard-confirm):** the SDK exposes `upProbability` / `upPercent` / `markYesPrice` in `units.js`, all derived from the **YES** price → **YES = Up, NO = Down** by convention. Confirm once on a settled market via `getMarketResolution` (opening vs closing) before trusting it with money.
 
 ## Testnet config (LOCKED — copied from ec-core source, no need to re-read)
 
