@@ -2,7 +2,9 @@
 
 *The living source of truth for this build. Updated as we go. Plain language on purpose.*
 
-**Last updated:** 2026-08-22 (session 2 — first code written)
+**Last updated:** 2026-08-22 (session 2 — pushed to GitHub + CI wired)
+
+**Repo:** https://github.com/Temmygabriel/LET_IT_RIDE — remote `origin`, branch `main`. Push works via **Git Credential Manager** (creds already stored; no `gh` CLI needed). CI runs the smoke test on every push → watch the **Actions** tab.
 
 > **Recovery note (read me first after a crash):** the API key crashes sometimes. This file + the memory files are the source of truth. To get back up to speed cheaply: read this file top-to-bottom, then check `git log` / the file list — do NOT re-read the big research `.md`s or the `_reference/` source unless something here points you there.
 
@@ -20,7 +22,7 @@ Hackathon: **Somnia × DreamDEX Event Contracts.** Submit **Aug 25 – Sep 8, 20
 
 ## Where we are right now
 
-**Phase: 1. Foundation PROVEN on live testnet (smoke test passed). Setting up GitHub.**
+**Phase: 1 → 2. Foundation is on GitHub + CI is wired. Next: vendor ec-core, then the roll loop.**
 
 - [x] Research done (saved — do NOT re-research)
 - [x] Idea chosen: **Let It Ride**
@@ -29,8 +31,9 @@ Hackathon: **Somnia × DreamDEX Event Contracts.** Submit **Aug 25 – Sep 8, 20
 - [x] **Real EC API read directly from the cloned bot-kit source** (`_reference/`) — see cheat-sheet below
 - [x] **Project skeleton created:** `package.json` (ESM), `.gitignore`, `scripts/smoke.mjs`
 - [x] **SMOKE TEST PASSED** ✅ (Aug 22) — testnet live, SDK v0.28.1 connects, 10 live BTC/ETH markets read + one on-chain snapshot. Findings below.
-- [ ] **← NEXT: push to GitHub** (repo + move the smoke test into a GitHub Actions workflow so it runs in the cloud, not on the PC).
-- [ ] Vendor the `ec-core` helpers into our repo (it's MIT-licensed and NOT on npm)
+- [x] **Pushed to GitHub** ✅ → https://github.com/Temmygabriel/LET_IT_RIDE (commit `3256a8c`).
+- [x] **Smoke test moved into CI** ✅ → `.github/workflows/smoke.yml` runs it on GitHub's machines on every push (this is our "verify without touching the PC" pipeline).
+- [ ] **← NEXT: Vendor the `ec-core` helpers** into `src/ec/` (MIT-licensed, NOT on npm; rewire `config.ts` off dotenv/node:fs so it runs in browser + Worker too).
 - [ ] Build the core loop: place → watch settle → claim → decide → roll
 - [ ] Frontend (Vite + React)
 - [ ] Always-on runner (Cloudflare Worker cron)

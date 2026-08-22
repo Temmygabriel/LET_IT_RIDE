@@ -1,0 +1,29 @@
+name: smoke
+
+# Runs the read-only testnet smoke test in the cloud on every push.
+# This is our "verify without touching the PC" pipeline — no secrets, no money,
+# just: does the SDK still connect and can we read live BTC/ETH markets?
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}   # lets us re-run it by hand from the Actions tab
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5     # the test races a 3s close timeout then exits; 5min is plenty
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm         # caches ~/.npm between runs using package-lock.json
+
+      - name: Install (exact versions from lockfile)
+        run: npm ci
+
+      - name: Smoke test (connect to testnet, list live markets, read one snapshot)
+        run: npm run smoke
