@@ -80,12 +80,22 @@ Ran `npm run smoke` once locally (before the "no local runs" rule landed); it ga
 - **Testnet:** chainId **50312**, RPC `https://api.infra.testnet.somnia.network`, collateral **tUSDC (6 decimals)** at `0x70a86D8842FB63C4Ad2b7cdddF530eBf1BB25d8E` — and it has a **public `faucet(uint256)`** so we can self-fund test money. STT gas via docs.somnia.network/developer/network-info.
 - **State machine must be WIN / LOSS / VOID / UNSETTLED** — a voided market refunds both sides 0.5, it is not a loss.
 
-### NEW finding (Aug 22) — builder fee likely DOES exist for EC 🎯
-Round-1 research said "builder fee unconfirmed for EC." But reading the real source, the binary pool's on-chain params include **`maxBuilderFeeBpsTimes1k`** (in `getBinaryPoolParams`, see `settlement.ts`). That means the EC pool contract *has* a builder-fee concept — the bot-kit's `placeLimit` just doesn't pass it. **To confirm:** check whether the SDK's `exchange.trader.placeOrder(...)` accepts a `builder` / `builderFeeBpsTimes1k` field (we'll grep the installed SDK types — free, no research round needed).
+### CONFIRMED from the SDK types (Aug 22, session 2) — read `trade.d.ts` + `native/session.d.ts` directly 🎯
+> Tooling gotcha: the search tool (ripgrep) **skips `node_modules` because it's gitignored** → it reported "no matches" for `builder` when the feature was right there. Lesson: to inspect an installed dep, **Read the file directly** (Read bypasses ignore), don't grep. Baked this into memory.
 
-### Still unconfirmed
-- **Non-custodial session keys for EC.** The delegation machinery (`OperatorPermissionsRegistry` / `placeOrderFor`) is proven for *spot*, not EC. The EC address type even has an `operatorPermissionsRegistry` slot — but it's empty in the bundled deployment. Our capped "ride wallet" sidesteps this for the MVP.
-- **On-chain reactive re-arm (no server).** Somnia Reactivity can run Solidity on events, but no full EC place→settle→re-arm example exists. Good demo stretch, not an MVP dependency.
+**1. Builder fee (our revenue) — CONFIRMED available for EC.** The binary `placeOrder` params (`PlaceOrderParams`) DO include `builder?: Address` + `builderFeeBpsTimes1k?: bigint`, and the Trader has `approveBuilder`, `getMaxBuilderFeeBpsTimes1k(pool)`, `getEffectiveBuilderApproval`. So we CAN tag orders with our frontend address and earn a routing fee. **Design caveats:** (a) the ride wallet must call `approveBuilder(pool, ourBuilder, maxFee)` once **per pool** before a fee-bearing order — and EC pools recycle across markets, so re-approve on each new pool; (b) on a BinaryPool the fee ceiling is **frozen at init** (not owner-updatable) — if a venue set it to 0, we earn 0. **→ Read `getMaxBuilderFeeBpsTimes1k(pool)` on a live testnet pool before banking on revenue.**
+
+**2. Non-custodial delegation for EC — still NO "place on my behalf", so ride-wallet stands (confirmed correct).** Operator / `placeOrderFor` delegation is **SPOT-only** (`setOperatorApprovalForPool` explicitly says "SpotPool"); the `Trader` interface has **no `placeOrderFor` for binary**. A third party can't place EC bets without a key. BUT two useful non-custodial pieces DO exist for EC: (a) **native session keys** — `sessionPrivateKey(seed)` / `sessionAddress(seed)` derive a burner from a 32-byte seed the user keeps (this basically *is* our ride wallet, formalized — fund `sessionAddress(seed)`); (b) **`signRedeemAuth` + `redeemFor`** — the owner signs once and a relayer CLAIMS winnings for them, gas-sponsored, payout hard-pinned to the owner. So claiming can be made non-custodial even though placing can't.
+
+**3. Demo super-power — `resolve()` / `voidMarket()` via FakeOracle.** Trader exposes `resolve({market, outcomeIdx})` and `voidMarket({market})` against a **FakeOracle (demo/dev resolver)**. If the auto-generated venue markets accept it, we can force WIN/LOSS/VOID on demand → the demo video shows a full place→settle→roll cycle in seconds instead of waiting 5–15 min. (Verify it applies to venue markets; may only work on markets we create.)
+
+**4. Authoritative settlement read = `trader.getSettlement(marketId)`** → `SettlementRecord { finalized, voided, winningOutcome (0=YES/1=NO, only when !voided), payoutNumerators, backing }`. Use THIS for the WIN/LOSS/VOID decision — not `getMarketOnchain().winningOutcome` (which reads 0 when unresolved). Confirms void ⇒ both sides redeem at half.
+
+### Still unconfirmed / to verify on live pools
+- **Is the builder-fee ceiling actually > 0 on the live venues?** `getMaxBuilderFeeBpsTimes1k(pool)` is frozen-at-init on BinaryPools → could be 0. Read it on a live 300s + 900s pool before promising revenue.
+- **Does `resolve()`/`voidMarket()` (FakeOracle) work on the auto-generated venue markets**, or only on markets we create ourselves? Decides whether the demo can force a fast settlement.
+- **YES/NO → Up/Down mapping** (open since the smoke test).
+- **On-chain reactive re-arm (fully keyless, no server).** Somnia Reactivity can run Solidity on events, but no full EC place→settle→re-arm example exists. Good demo stretch, not an MVP dependency. *(Note: "non-custodial placing" is now settled — the SDK has NO `placeOrderFor` for binary, so holding a key is required; our ride wallet = a funded `sessionAddress(seed)` is the right model. Non-custodial CLAIM, however, is possible via `signRedeemAuth`+`redeemFor`.)*
 
 ---
 
@@ -133,6 +143,51 @@ exchange.client.getOutcomeBalance({ outcomeToken, account, id })
 exchange.client.getErc20Balance(collateral, address)
 
 // ALWAYS on writes: assertTxOk(res, label)
+```
+
+### SDK write-API (the real layer under the wrapper — from `trade.d.ts`, Aug 22 s2)
+```
+// A signer/trader (provide ≥1 signing source; decimals default 6, gas default 10_000_000)
+const trader = client.createTrader({ privateKey /* or walletClient / account */, publicClient })
+
+// PLACE a binary bet. price + quantity are INTEGERS in raw units (NOT floats):
+//   price    = probability × 10^decimals   → 0.62 becomes 620_000n   (collateral per 1 whole token)
+//   quantity = tokens      × 10^decimals   → 10 tokens becomes 10_000_000n
+await trader.placeOrder({
+  pool,                       // the market's pool Address
+  side: "BUY_YES",            // BinarySide: BUY_YES | SELL_YES | BUY_NO | SELL_NO
+  price: 620_000n,
+  quantity: 10_000_000n,
+  orderType: 2,               // ORDER_TYPE: 0 LIMIT · 1 FILL_OR_KILL · 2 MARKET(IOC) · 3 POST_ONLY
+  builder,                    // OUR frontend address → earns routing fee (optional)
+  builderFeeBpsTimes1k,       // ≤ getMaxBuilderFeeBpsTimes1k(pool) AND ≤ our approval
+  // expireTimestampNs defaults to the market expiry (dead-man switch); autoApprove defaults true
+})
+
+// BUILDER FEE (our revenue) — per-pool, do once before a fee-bearing order on a new pool:
+await trader.approveBuilder({ pool, builder, maxFeeBpsTimes1k })
+await trader.getMaxBuilderFeeBpsTimes1k(pool)   // BinaryPool ceiling — FROZEN at init; could be 0
+
+// SETTLEMENT — the authoritative WIN/LOSS/VOID read:
+const s = await trader.getSettlement(marketId)
+//   → { finalized, voided, winningOutcome (0=YES/1=NO, only when !voided),
+//       payoutNumerators, backing, ... }  |  null if not settled yet
+
+// CLAIM winnings (they do NOT auto-arrive). outcomeIdx 0=YES 1=NO:
+await trader.redeem({ marketId, amount, outcomeIdx })
+await trader.redeemMany({ entries: [{ marketId, outcomeIdx, amount }] })
+// Non-custodial claim: owner signs once → relayer submits, payout pinned to owner:
+const auth = await trader.signRedeemAuth({ ... }); await relayer.redeemFor({ ...auth })
+
+// Test money (no faucet UI needed): mints tUSDC to the trader
+await trader.faucet({ /* amount? defaults 10_000 × 10^decimals */ })
+
+// Ride wallet as a session key (import from "@somnia-chain/markets-sdk/native"):
+//   sessionAddress(seed) → the address to FUND ;  sessionPrivateKey(seed) → the key to sign with
+
+// DEMO fast-forward (FakeOracle, dev only — verify it works on venue markets):
+await trader.resolve({ market, outcomeIdx })   // 0 = YES wins, 1 = NO wins
+await trader.voidMarket({ market })
 ```
 
 **Direction mapping to verify on live data:** YES = outcome 0, NO = outcome 1. Need to confirm which one = "price Up" for a given market (from the market symbol/outcome symbols). To check in the smoke test.
