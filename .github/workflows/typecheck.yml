@@ -1,0 +1,34 @@
+name: typecheck
+
+# Type-checks the portable engine in the cloud on every push. We can't run
+# builds on the dev PC, so `tsc --noEmit` in CI is our compiler: if the types
+# don't line up with the SDK, this job goes red before anything ships.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (exact versions from lockfile)
+        run: npm ci
+
+      # TypeScript is a dev-only tool; installing it with --no-save keeps
+      # package.json + the lockfile untouched so `npm ci` stays exact.
+      - name: Add TypeScript (not saved)
+        run: npm install --no-save typescript@5
+
+      - name: Type-check (no emit)
+        run: npx tsc --noEmit
