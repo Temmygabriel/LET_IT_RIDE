@@ -307,18 +307,25 @@ User sets: asset + direction + stake + cash-out target + stop-loss + max rounds
 
 | File | What it is |
 |---|---|
-| `PROGRESS.md` | **This file** — living status. |
-| `let-it-ride-build-plan.md` | The approved product plan (pitch, screens, timeline). |
-| `let-it-ride-sdk-verification-research.md` | Round-1 ChatGPT research (deep, 35KB). |
-| `hackathon-research-brief.md` | Original research brief. |
-| `sdk-verification-brief.md` / `sdk-deep-dive-brief.md` | Research briefs for ChatGPT (round 1 & 2). |
-| `_reference/dreamdex-bot-kit/` | Cloned bot-kit — the REAL EC source we read + will vendor from. Read-only reference. |
+| `README.md` | Project front page — product, architecture, status, how to run the smoke test. |
+| `PROGRESS.md` | **This file** — living, dated build log. |
+| `package.json` / `package-lock.json` | Dependencies (`@somnia-chain/markets-sdk` + viem). |
+| `scripts/smoke.mjs` | Read-only testnet smoke test (connect + list live BTC/ETH markets). |
+| `.github/workflows/smoke.yml` | CI — runs the smoke test in the cloud on every push. |
+
+_Internal planning and research notes are kept on disk but out of the public repo._
 
 ---
 
 ## Immediate next steps
-1. **Smoke test (no money):** minimal Node script → connect to testnet → list live BTC/ETH binary markets + print one on-chain snapshot. Proves testnet is live and the SDK works. While the SDK is installed, grep its types for `builder` / `placeOrderFor` / `operator` / `subscribe` to answer the open questions for free.
-2. Vendor `ec-core` into `src/ec/` (rewire `config.ts` off `dotenv`/`node:fs` so it runs in browser + Worker too).
-3. Write the portable roll engine (place → watch → claim → decide → roll) and prove one full cycle on testnet with a funded ride wallet.
-4. Frontend shell → wire the engine → live ride screen.
-5. Move the loop into a Cloudflare Worker cron.
+1. Scaffold TypeScript + add a `tsc --noEmit` typecheck job to CI (we can't run locally, so CI is our compiler).
+2. Write the portable roll engine **directly on `@somnia-chain/markets-sdk`** (the "vendor ec-core" plan was dropped — the SDK's unified layer already covers everything, in human units, browser/Worker-ready): `src/config.ts`, `src/exchange.ts` (connect + attach/detach the ride wallet), `src/engine.ts` (find → place → watch → claim → decide → roll, with guardrails). Prove one full cycle on testnet with a funded ride wallet.
+3. Frontend shell (Vercel) → wire the engine → live ride screen.
+4. Move the loop into a Cloudflare Worker cron so the ride survives a closed tab.
+
+---
+
+## Update — 2026-08-23
+- **Repo hygiene for submission.** Withdrew the 5 internal briefs (build plan + research + briefs) into a local, git-ignored `_local/` folder — kept on disk, removed from the public repo. Public tree is now judge-facing only: `README.md`, `PROGRESS.md`, `package.json` / `package-lock.json`, `scripts/smoke.mjs`, `.github/workflows/smoke.yml`, plus git config.
+- **Added `README.md`** — product pitch, how the ride + guardrails work, architecture table (Vercel frontend / Cloudflare Worker cron / capped ride wallet / chain as source of truth), tech stack, honest build status, and smoke-test instructions.
+- Confirmed CI still green. NEXT: TS scaffold + engine (step 1–2 above).
