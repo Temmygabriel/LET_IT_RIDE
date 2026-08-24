@@ -6,6 +6,7 @@ _reference/
 
 # internal planning / research notes — kept on disk, never pushed (not for judges)
 _local/
+PROGRESS.md
 
 # secrets & env
 .env

@@ -76,11 +76,9 @@ This is an active hackathon build. Current state:
 
 - ✅ **Connects to Somnia testnet** and reads live BTC/ETH Up/Down markets
 - ✅ **Read-only smoke test runs green in CI** on every push (see [`.github/workflows/smoke.yml`](.github/workflows/smoke.yml))
-- 🚧 **Roll engine** (find → place → watch → claim → decide → roll) — in progress
+- ✅ **Roll engine** (find → place → watch → claim → decide → roll) — type-checked in CI
 - 🚧 **Frontend** (setup / live view / stop) — in progress
 - 🚧 **Cloudflare Worker cron** deployment — in progress
-
-Detailed, dated build notes live in [`PROGRESS.md`](PROGRESS.md).
 
 ## Running the smoke test
 
