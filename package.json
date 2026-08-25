@@ -5,10 +5,23 @@
   "type": "module",
   "description": "Let It Ride — auto-roll a winning Up/Down position across recurring DreamDEX Event Contract windows on Somnia. Non-custodial, guardrailed.",
   "scripts": {
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "dev": "vite",
+    "build": "tsc -p tsconfig.web.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck:web": "tsc -p tsconfig.web.json --noEmit"
   },
   "dependencies": {
     "@somnia-chain/markets-sdk": "^0.28.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "viem": "^2.55.19"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
   }
 }

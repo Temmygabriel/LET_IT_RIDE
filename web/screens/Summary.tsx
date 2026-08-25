@@ -1,0 +1,67 @@
+import type { RideState } from "../../src/types.ts";
+import { outcomeLook, money, directionLook, assetLabel } from "../format.ts";
+import { GuardrailChips } from "../components/GuardrailChips.tsx";
+
+/** The recap. Frames the ending honestly — a disciplined exit is the celebrated win. */
+export function Summary({ state, onReset }: { state: RideState; onReset: () => void }) {
+  const { config } = state;
+  const outcome = outcomeLook(state.stopReason);
+  const dir = directionLook(config.direction);
+
+  const net = state.pot - config.startStake;
+  const up = net >= 0;
+  const isError = state.phase === "ERROR";
+
+  return (
+    <div className="summary">
+      <div className={`card summary-card tone-${outcome.tone}`}>
+        <div className="summary-emoji">{isError ? "🔧" : outcome.emoji}</div>
+        <h2 className="summary-headline">
+          {isError ? "The ride hit a snag" : outcome.headline}
+        </h2>
+        <p className="summary-blurb">
+          {isError
+            ? "Something interrupted the loop. Your funds are on-chain and safe — you can start a fresh ride."
+            : outcome.blurb}
+        </p>
+
+        {isError && state.lastError && (
+          <p className="summary-error">{state.lastError}</p>
+        )}
+
+        <div className="summary-stats">
+          <div className="stat">
+            <span className="stat-k">Final pot</span>
+            <span className="stat-v">{money(state.pot)}</span>
+          </div>
+          <div className="stat">
+            <span className="stat-k">Net</span>
+            <span className={`stat-v ${up ? "up" : "down"}`}>
+              {up ? "+" : "−"}
+              {money(Math.abs(net))}
+            </span>
+          </div>
+          <div className="stat">
+            <span className="stat-k">Rounds ridden</span>
+            <span className="stat-v">{state.round}</span>
+          </div>
+        </div>
+
+        <div className="summary-recap">
+          <span className={`dir-pill ${dir.tone}`}>
+            {dir.arrow} {config.asset} {dir.word}
+          </span>
+          <span className="muted small">
+            Started at {money(config.startStake)} on {assetLabel(config.asset)}
+          </span>
+        </div>
+
+        <GuardrailChips guardrails={config.guardrails} />
+
+        <button className="btn btn-primary btn-big" onClick={onReset}>
+          Ride again →
+        </button>
+      </div>
+    </div>
+  );
+}

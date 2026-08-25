@@ -1,0 +1,10 @@
+{
+  "//": "Type-checks the browser app. Extends the shared base (strict, Bundler resolution, .ts extensions allowed) but adds JSX + the browser/Vite ambient types, and scopes to web/ + the pure src/ modules the app reuses. `tsc -p` here is --noEmit only; Vite/esbuild does the real bundling.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "noEmit": true
+  },
+  "include": ["web", "src/types.ts", "src/rules.ts"]
+}
