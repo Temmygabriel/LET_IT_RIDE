@@ -23,14 +23,14 @@ import type {
 } from "@somnia-chain/markets-sdk";
 import type { Address, Hex } from "viem";
 
-import { ADDRESSES } from "./config";
-import type { RideConfig, RideState } from "./types";
+import { ADDRESSES } from "./config.ts";
+import type { RideConfig, RideState } from "./types.ts";
 import {
   buySideForDirection,
   didWin,
   nextStake,
   evaluateGuardrails,
-} from "./rules";
+} from "./rules.ts";
 
 // tUSDC has 6 decimals; we learn the market's real quote decimals from chain on
 // the first lookup and cache it, but start from the demo's known default so a
@@ -40,6 +40,25 @@ const DEFAULT_DECIMALS = 6;
 /** Unix seconds — the clock unit RideState uses. */
 function nowSec(): number {
   return Math.floor(Date.now() / 1000);
+}
+
+/**
+ * The state of a brand-new ride: round 0, full pot, nothing placed yet. Shared
+ * by the engine constructor and any caller that needs to mint a starting state
+ * without a live exchange (e.g. the Worker's `POST /ride` endpoint just writes
+ * this to storage; the cron does the first real beat).
+ */
+export function initialRideState(config: RideConfig): RideState {
+  const t = nowSec();
+  return {
+    config,
+    phase: "IDLE",
+    round: 0,
+    pot: config.startStake,
+    currentMarketId: null,
+    startedAt: t,
+    updatedAt: t,
+  };
 }
 
 /** A ride is over once it reaches one of these two phases. */
@@ -72,17 +91,23 @@ export class RideEngine {
   /** Set by requestStop(): finish the current window, then halt instead of rolling. */
   private stopRequested = false;
 
-  constructor(exchange: SomniaMarkets, config: RideConfig) {
+  constructor(exchange: SomniaMarkets, config: RideConfig, resumeState?: RideState) {
     this.exchange = exchange;
-    this.state = {
-      config,
-      phase: "IDLE",
-      round: 0,
-      pot: config.startStake,
-      currentMarketId: null,
-      startedAt: nowSec(),
-      updatedAt: nowSec(),
-    };
+    // Fresh ride from a config, or resume an existing one from persisted state.
+    this.state = resumeState ?? initialRideState(config);
+    // A resumed ride carries its Stop intent in the state; honour it.
+    this.stopRequested = this.state.stopRequested ?? false;
+  }
+
+  /**
+   * Rebuild an engine from a persisted RideState — the cold-start path a
+   * Cloudflare Worker cron takes each tick: read state from storage, connect +
+   * attach the ride wallet, `resume()`, `step()` once, write the state back.
+   * Win/loss/void is re-read from chain every beat, so resuming mid-ride is
+   * always correct even though nothing but RideState was persisted.
+   */
+  static resume(exchange: SomniaMarkets, state: RideState): RideEngine {
+    return new RideEngine(exchange, state.config, state);
   }
 
   /**
@@ -92,6 +117,10 @@ export class RideEngine {
    */
   requestStop(): void {
     this.stopRequested = true;
+    // Persist the intent into the state too, so a Worker that only stores
+    // RideState (and rebuilds the engine each tick) still stops cleanly.
+    this.state.stopRequested = true;
+    this.state.updatedAt = nowSec();
   }
 
   /**

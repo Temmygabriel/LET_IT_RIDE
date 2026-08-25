@@ -1,0 +1,32 @@
+name: runner
+
+# Type-checks the Deno Deploy runner in the cloud on every push.
+#
+# The root `typecheck` job runs `tsc` scoped to src/ only; it can't check runner/
+# because those files use Deno-only globals (Deno.openKv, Deno.cron, Deno.serve).
+# `deno check` is the runner's compiler — and because it follows the imports into
+# ../src/*.ts, it also proves the shared engine still resolves under Deno (the
+# real deploy target), catching any drift before it ships.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Resolves npm:@somnia-chain/markets-sdk + viem via the import map in
+      # runner/deno.json, then type-checks main.ts and everything it imports.
+      - name: Deno check (runner + shared engine)
+        working-directory: runner
+        run: deno check main.ts

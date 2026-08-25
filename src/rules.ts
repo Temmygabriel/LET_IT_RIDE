@@ -3,7 +3,7 @@
 // the engine, the frontend (to preview what a ride will do), and the Worker
 // can all share the exact same rules with zero risk of drift.
 
-import type { Direction, Guardrails, StopReason } from "./types";
+import type { Direction, Guardrails, StopReason } from "./types.ts";
 
 // A binary window has two outcomes. The chain numbers them:
 //   YES = outcome 0 = "price finished UP"

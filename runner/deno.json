@@ -1,0 +1,12 @@
+{
+  "//": "Deno Deploy runner config. The import map points the bare specifiers our shared src/ uses at npm, so the exact same engine that tsc + Vite compile also resolves under Deno's native resolver. kv + cron are enabled explicitly so `deno check` recognises Deno.openKv / Deno.cron on any Deno version.",
+  "imports": {
+    "@somnia-chain/markets-sdk": "npm:@somnia-chain/markets-sdk@0.28.1",
+    "viem": "npm:viem@^2.55.19",
+    "viem/": "npm:/viem@^2.55.19/"
+  },
+  "unstable": ["kv", "cron"],
+  "tasks": {
+    "check": "deno check main.ts"
+  }
+}

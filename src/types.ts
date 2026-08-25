@@ -74,4 +74,10 @@ export interface RideState {
   updatedAt: number;
   stopReason?: StopReason;
   lastError?: string;
+  /**
+   * Set when the user presses Stop. Persisted here (not just in engine memory)
+   * so a Worker that resumes a ride from this state still honours the request:
+   * the current window is banked, then the ride halts instead of rolling on.
+   */
+  stopRequested?: boolean;
 }

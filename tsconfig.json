@@ -9,6 +9,10 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "strict": true,
     "noEmit": true,
+    // Our shared src/ imports carry explicit .ts extensions so Deno's native
+    // resolver (the runner host) can load them. Safe with noEmit; tsc + Vite
+    // both tolerate the extensions too.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

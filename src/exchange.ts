@@ -3,7 +3,7 @@
 // exact same connect/attach code path.
 
 import { SomniaMarkets } from "@somnia-chain/markets-sdk";
-import { baseConfig } from "./config";
+import { baseConfig } from "./config.ts";
 
 /** Boot a read-only exchange. Cannot spend anything until a signer is attached. */
 export function connect(): SomniaMarkets {
