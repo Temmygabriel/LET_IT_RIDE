@@ -70,10 +70,10 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
+        <button type="button" className="brand" onClick={reset} title="Back to start">
           <span className="brand-mark">🎢</span>
           <span className="brand-name">Let It Ride</span>
-        </div>
+        </button>
         <WalletStrip />
       </header>
 

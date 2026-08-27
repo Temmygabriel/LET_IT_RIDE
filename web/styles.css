@@ -69,6 +69,16 @@ code {
   display: flex;
   align-items: center;
   gap: 10px;
+  /* it's a real button now (the escape hatch back to Setup) — strip button chrome */
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.brand:hover .brand-name {
+  text-decoration: underline;
 }
 
 .brand-mark {
