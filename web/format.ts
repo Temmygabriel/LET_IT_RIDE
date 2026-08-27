@@ -9,6 +9,31 @@ export function isTerminalPhase(phase: RidePhase): boolean {
   return phase === "STOPPED" || phase === "ERROR";
 }
 
+/** The query the share page reads back. Kept tiny so the link stays short. */
+export interface ShareParams {
+  asset: Asset;
+  dir: Direction;
+  round: number;
+  start: number;
+  pot: number;
+  /** "riding" while live; the lowercased StopReason (or "error") once ended. */
+  status: string;
+}
+
+/** Build an absolute /share link that renders a public card of this ride. */
+export function buildShareUrl(p: ShareParams): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const q = new URLSearchParams({
+    asset: p.asset,
+    dir: p.dir,
+    round: String(p.round),
+    start: String(p.start),
+    pot: String(p.pot),
+    status: p.status,
+  });
+  return `${origin}/share?${q.toString()}`;
+}
+
 /** Money-ish formatting for the pot (tUSDC, shown with a $ for feel). */
 export function money(n: number): string {
   return `$${n.toLocaleString(undefined, {

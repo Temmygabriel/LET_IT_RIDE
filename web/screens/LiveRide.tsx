@@ -1,5 +1,13 @@
+import { useState } from "react";
 import type { RideState } from "../../src/types.ts";
-import { phaseLook, directionLook, money, assetLabel, intervalLabel } from "../format.ts";
+import {
+  phaseLook,
+  directionLook,
+  money,
+  assetLabel,
+  intervalLabel,
+  buildShareUrl,
+} from "../format.ts";
 import { GuardrailChips } from "../components/GuardrailChips.tsx";
 import { Spinner } from "../components/ui.tsx";
 
@@ -19,6 +27,27 @@ export function LiveRide({
 
   const delta = state.pot - config.startStake;
   const up = delta >= 0;
+  const mult = config.startStake > 0 ? state.pot / config.startStake : 0;
+
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const url = buildShareUrl({
+      asset: config.asset,
+      dir: config.direction,
+      round: state.round,
+      start: config.startStake,
+      pot: state.pot,
+      status: "riding",
+    });
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard blocked (e.g. insecure context) — open the card so they can copy the address bar.
+      window.open(url, "_blank", "noopener");
+    }
+  };
 
   return (
     <div className="live">
@@ -45,6 +74,12 @@ export function LiveRide({
           </div>
         </div>
 
+        {state.round >= 1 && (
+          <div className="streak-line">
+            🔥 {state.round} win{state.round === 1 ? "" : "s"} in a row · pot is {mult.toFixed(mult >= 10 ? 0 : 1)}× your start
+          </div>
+        )}
+
         <div className="live-meta">
           <div className="meta-cell">
             <span className="meta-k">Round</span>
@@ -59,6 +94,10 @@ export function LiveRide({
             <span className="meta-v">{assetLabel(config.asset)}</span>
           </div>
         </div>
+
+        <button className="btn btn-ghost btn-sm share-btn" onClick={() => void share()}>
+          {copied ? "✓ Link copied" : "↗ Share this ride"}
+        </button>
       </div>
 
       <div className="card live-guard">

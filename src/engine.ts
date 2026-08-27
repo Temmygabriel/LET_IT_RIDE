@@ -268,12 +268,18 @@ export class RideEngine {
     // is captured above so a later claim reads the right account.)
     void wallet;
     this.state.currentMarketId = marketId;
+    this.state.heldSince = nowSec(); // start the settle-timeout clock (see beatHolding)
     this.touch("HOLDING");
   }
 
   /**
-   * HOLDING: in a position, waiting for the window to settle. One chain read
-   * tells us where the market stands; we only move when it's actually done.
+   * HOLDING: in a position, waiting for the window to settle. We read the
+   * AUTHORITATIVE settlement record (`trader.getSettlement`) rather than a
+   * status flag: it is null until the window has truly settled on-chain, then
+   * carries the finalized / voided / winner facts. (The old
+   * `getMarketOnchain().isResolved` flag proved unreliable — a ride could sit
+   * here forever waiting on a resolve that never flipped.) A generous timeout
+   * ends a window that never settles, so a cron can never poll it forever.
    */
   private async beatHolding(): Promise<void> {
     const marketId = this.state.currentMarketId as Hex | null;
@@ -281,23 +287,47 @@ export class RideEngine {
       throw new Error("HOLDING with no current market — lost track of the bet");
     }
 
-    const oc: MarketOnchain = await this.exchange.client.getMarketOnchain(marketId);
+    const settlement = await this.exchange.trader.getSettlement(marketId);
 
-    // Still running: neither resolved nor voided. Stay put; run() will sleep.
-    if (!oc.isResolved && !oc.isVoided) {
+    // Not settled yet — or settled but not finalized, so nothing is redeemable
+    // yet. Stay put, unless we've been waiting far longer than a window could
+    // honestly take, in which case end cleanly instead of polling a stuck
+    // market indefinitely (the runaway that once pinned server usage).
+    if (!settlement || !settlement.finalized) {
+      if (this.state.heldSince == null) {
+        // Older state that entered HOLDING before we tracked entry time. If the
+        // user already asked to stop, there is nothing left to win by waiting —
+        // honour it now. Otherwise start the clock so the timeout can fire.
+        if (this.stopRequested) {
+          this.finish("USER_STOP");
+          return;
+        }
+        this.state.heldSince = nowSec();
+      } else if (this.heldTooLong()) {
+        if (this.stopRequested) {
+          this.finish("USER_STOP");
+        } else {
+          this.fail(
+            "This window didn't settle in time. Your funds are safe on-chain — " +
+              "start a fresh ride, and you can redeem the stuck window from your wallet.",
+          );
+        }
+        return;
+      }
       this.touch("HOLDING");
       return;
     }
 
     // Voided window: no winner. We'll redeem the half-back in CLAIMING, then
     // stop (a void breaks the ride). Route through CLAIMING either way.
-    if (oc.isVoided) {
+    if (settlement.voided) {
       this.touch("CLAIMING");
       return;
     }
 
-    // Resolved for real: did our direction win?
-    const won = didWin(this.state.config.direction, oc.winningOutcome as 0 | 1);
+    // Settled for real: did our direction win? (winningOutcome is 0 = YES,
+    // 1 = NO; didWin maps our UP/DOWN onto that — same call as before.)
+    const won = didWin(this.state.config.direction, settlement.winningOutcome as 0 | 1);
     if (won) {
       this.touch("CLAIMING");
       return;
@@ -334,10 +364,11 @@ export class RideEngine {
     // The wallet's collateral balance IS the new pot — chain truth, no drift.
     await this.refreshPotFromWallet();
 
-    // A voided window ends the ride (we took the half-back and step out).
+    // A voided window ends the ride (we took the half-back and step out). Read
+    // the authoritative settlement record — the same source HOLDING advanced on.
     if (marketId) {
-      const oc: MarketOnchain = await client.getMarketOnchain(marketId);
-      if (oc.isVoided) {
+      const settlement = await this.exchange.trader.getSettlement(marketId);
+      if (settlement?.voided) {
         this.finish("VOID_EXIT");
         return;
       }
@@ -383,6 +414,20 @@ export class RideEngine {
     const raw = await this.exchange.client.getErc20Balance(collateral, wallet);
     this.state.pot = toHuman(raw, this.decimals);
     this.state.updatedAt = nowSec();
+  }
+
+  /**
+   * True once we've been HOLDING a single window far longer than it could
+   * honestly take to settle — i.e. the market is stuck. Deliberately generous
+   * (three whole windows plus ten minutes) so it only ever trips on genuine
+   * breakage, never on a normal settle. This is the seatbelt against the
+   * endless polling that once pinned server usage.
+   */
+  private heldTooLong(): boolean {
+    const since = this.state.heldSince;
+    if (since == null) return false;
+    const budgetSec = this.state.config.intervalSec * 3 + 600;
+    return nowSec() - since > budgetSec;
   }
 
   /** Move to a phase and stamp updatedAt. */

@@ -7,6 +7,7 @@ import { Banner, Loading } from "./components/ui.tsx";
 import { Setup } from "./screens/Setup.tsx";
 import { LiveRide } from "./screens/LiveRide.tsx";
 import { Summary } from "./screens/Summary.tsx";
+import { ShareCard } from "./screens/ShareCard.tsx";
 
 /**
  * The whole app is a tiny state machine driven by one question: is there a ride?
@@ -16,6 +17,13 @@ import { Summary } from "./screens/Summary.tsx";
  * The runner owns the money and the loop; this is a thin client over it.
  */
 export default function App() {
+  // A shared ride card is a standalone, runner-free view. Route to it before any
+  // ride hooks run. The path is fixed for the page's lifetime, so this early
+  // return is stable across renders (no Rules-of-Hooks violation).
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/share")) {
+    return <ShareCard />;
+  }
+
   const [rideId, setRideId] = useState<string | null>(null);
   const [booted, setBooted] = useState(false);
   const { state, error, stopping, stop } = useRide(rideId);

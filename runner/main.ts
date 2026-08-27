@@ -17,6 +17,9 @@ const kv = await Deno.openKv();
 // while HOLDING, but store.ts only writes KV when something actually changed.)
 Deno.cron("tick-rides", "*/2 * * * *", async () => {
   try {
+    // Stamp "the cron is alive" first, before any work — so /debug can show the
+    // heartbeat even if a tick later throws. (Cheap: one KV write every 2 min.)
+    await kv.set(["meta", "lastCron"], Math.floor(Date.now() / 1000));
     await tickAll(kv);
   } catch (err) {
     console.error("tick-rides cron failed:", err);

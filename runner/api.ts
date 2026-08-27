@@ -249,6 +249,38 @@ async function stopRide(kv: Deno.Kv, id: string): Promise<Response> {
   return json({ id, state });
 }
 
+/**
+ * A no-secrets diagnostics snapshot for a stuck ride: when the cron last fired
+ * (the heartbeat), and where every ride stands right now — including how long
+ * each has been HOLDING, so a wedged window is obvious at a glance.
+ */
+async function debugInfo(kv: Deno.Kv): Promise<Response> {
+  const now = nowSec();
+  const lastCron = (await kv.get<number>(["meta", "lastCron"])).value ?? null;
+  const rides = (await listRides(kv)).map(({ id, state }) => ({
+    id,
+    phase: state.phase,
+    round: state.round,
+    pot: state.pot,
+    currentMarketId: state.currentMarketId,
+    stopRequested: state.stopRequested ?? false,
+    stopReason: state.stopReason ?? null,
+    lastError: state.lastError ?? null,
+    heldForSec: state.heldSince ? now - state.heldSince : null,
+    updatedAgoSec: now - state.updatedAt,
+  }));
+  return json({
+    now,
+    lastCron,
+    cronAgoSec: lastCron === null ? null : now - lastCron,
+    cronNote: lastCron === null
+      ? "cron has not fired since deploy — is it enabled in the Deno dashboard?"
+      : "ok",
+    activeCount: rides.filter((r) => r.phase !== "STOPPED" && r.phase !== "ERROR").length,
+    rides,
+  });
+}
+
 /** The one entry point Deno.serve calls. Routes method + path to a handler. */
 export async function handle(req: Request, kv: Deno.Kv): Promise<Response> {
   const { pathname } = new URL(req.url);
@@ -270,11 +302,15 @@ export async function handle(req: Request, kv: Deno.Kv): Promise<Response> {
           "GET /rides",
           "GET /ride/:id",
           "POST /ride/:id/stop",
+          "GET /debug",
         ],
       });
     }
     if (method === "GET" && pathname === "/health") {
       return json({ ok: true, ts: nowSec() });
+    }
+    if (method === "GET" && pathname === "/debug") {
+      return await debugInfo(kv);
     }
     if (method === "GET" && pathname === "/wallet") {
       return await walletInfo();

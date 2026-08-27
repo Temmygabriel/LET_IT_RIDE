@@ -53,21 +53,21 @@ Everything runs on free infrastructure. Nothing runs on your own machine.
 | Piece | Where it runs | Job |
 |---|---|---|
 | **Frontend** (Vite + React) | Vercel | Set up a ride, watch it live, start/stop |
-| **Roll engine** (portable TypeScript) | Cloudflare Worker (cron) | Every window: check the result, claim winnings, apply your guardrails, place the next bet — so the ride keeps going even after you close the tab |
-| **Ride wallet** | Held by the Worker | A small, capped, revocable wallet that funds the ride. Your main wallet is never exposed. |
+| **Roll engine** (portable TypeScript) | Deno Deploy (cron) | Every window: check the result, claim winnings, apply your guardrails, place the next bet — so the ride keeps going even after you close the tab |
+| **Ride wallet** | Held by the runner | A small, capped, revocable wallet that funds the ride. Your main wallet is never exposed. |
 | **Source of truth** | Somnia chain | Positions and settlement are read straight from the chain, not a cache |
 
-The engine is written as a single portable TypeScript state machine so the exact same logic can be type-checked in CI, run in a Worker, or run in a browser tab.
+The engine is written as a single portable TypeScript state machine so the exact same logic can be type-checked in CI, run on a scheduled cloud runner, or run in a browser tab.
 
 ### Why a "ride wallet"?
 
-For the auto-roll to survive you closing your laptop, *something* always-on has to place the next bet. That something is a Cloudflare Worker. Rather than hand it your real wallet, you fund a **small capped ride wallet** — bounded, stoppable, and withdrawable at any time. It's an honest trade-off, clearly framed: the most you can ever put at risk is what you load into it.
+For the auto-roll to survive you closing your laptop, *something* always-on has to place the next bet. That something is a small always-on cloud runner (Deno Deploy). Rather than hand it your real wallet, you fund a **small capped ride wallet** — bounded, stoppable, and withdrawable at any time. It's an honest trade-off, clearly framed: the most you can ever put at risk is what you load into it.
 
 ## Tech
 
 - [`@somnia-chain/markets-sdk`](https://www.npmjs.com/package/@somnia-chain/markets-sdk) — official SDK for reading markets and placing/settling positions
 - [viem](https://viem.sh) — Ethereum library used under the SDK
-- TypeScript · Vite · React · Cloudflare Workers · Vercel
+- TypeScript · Vite · React · Deno Deploy · Vercel
 - CI: GitHub Actions
 
 ## Project status
@@ -77,8 +77,8 @@ This is an active hackathon build. Current state:
 - ✅ **Connects to Somnia testnet** and reads live BTC/ETH Up/Down markets
 - ✅ **Read-only smoke test runs green in CI** on every push (see [`.github/workflows/smoke.yml`](.github/workflows/smoke.yml))
 - ✅ **Roll engine** (find → place → watch → claim → decide → roll) — type-checked in CI
-- 🚧 **Frontend** (setup / live view / stop) — in progress
-- 🚧 **Cloudflare Worker cron** deployment — in progress
+- ✅ **Always-on runner** (Deno Deploy) — cron auto-roll + HTTP API for the frontend, built with a `deno check` CI job ([`.github/workflows/runner.yml`](.github/workflows/runner.yml)); wiring the live deploy
+- 🚧 **Frontend** (setup / live view / stop) — next
 
 ## Running the smoke test
 

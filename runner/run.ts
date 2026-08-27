@@ -31,9 +31,18 @@ async function stepRide(
   // with this very object and then mutates it in place, so a reference compare
   // after step() would always look unchanged. The string snapshot is immune.
   const beforeSig = rideSignature(state);
+  const beforePhase = state.phase;
   const engine = RideEngine.resume(exchange, state);
   await engine.step();
-  await saveIfChanged(kv, id, beforeSig, engine.state);
+  const changed = await saveIfChanged(kv, id, beforeSig, engine.state);
+  // A one-line trail of what each beat did — the fastest way to see a ride
+  // move (or spot one wedged in a phase) in the Deno Deploy logs.
+  console.log(
+    `ride ${id.slice(0, 8)}: ${beforePhase} → ${engine.state.phase} ` +
+      `round=${engine.state.round} pot=${engine.state.pot}` +
+      (engine.state.lastError ? ` err="${engine.state.lastError}"` : "") +
+      (changed ? " [saved]" : ""),
+  );
   return engine.state;
 }
 
@@ -45,7 +54,11 @@ async function stepRide(
  */
 export async function tickAll(kv: Deno.Kv): Promise<void> {
   const rides = (await listRides(kv)).filter((r) => isActive(r.state));
-  if (rides.length === 0) return;
+  if (rides.length === 0) {
+    console.log("tick: no active rides");
+    return;
+  }
+  console.log(`tick: ${rides.length} active ride(s)`);
 
   const exchange = connect();
   try {

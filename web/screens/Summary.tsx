@@ -1,5 +1,6 @@
+import { useState } from "react";
 import type { RideState } from "../../src/types.ts";
-import { outcomeLook, money, directionLook, assetLabel } from "../format.ts";
+import { outcomeLook, money, directionLook, assetLabel, buildShareUrl } from "../format.ts";
 import { GuardrailChips } from "../components/GuardrailChips.tsx";
 
 /** The recap. Frames the ending honestly — a disciplined exit is the celebrated win. */
@@ -11,6 +12,28 @@ export function Summary({ state, onReset }: { state: RideState; onReset: () => v
   const net = state.pot - config.startStake;
   const up = net >= 0;
   const isError = state.phase === "ERROR";
+
+  // The share card reads a status token: "error", or the lowercased stop reason.
+  const status = isError ? "error" : (state.stopReason ?? "ended").toLowerCase();
+
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const url = buildShareUrl({
+      asset: config.asset,
+      dir: config.direction,
+      round: state.round,
+      start: config.startStake,
+      pot: state.pot,
+      status,
+    });
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      window.open(url, "_blank", "noopener");
+    }
+  };
 
   return (
     <div className="summary">
@@ -60,6 +83,9 @@ export function Summary({ state, onReset }: { state: RideState; onReset: () => v
 
         <button className="btn btn-primary btn-big" onClick={onReset}>
           Ride again →
+        </button>
+        <button className="btn btn-ghost btn-sm share-btn" onClick={() => void share()}>
+          {copied ? "✓ Link copied" : "↗ Share this result"}
         </button>
       </div>
     </div>

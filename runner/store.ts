@@ -61,6 +61,9 @@ export function rideSignature(s: RideState): string {
     stopReason: s.stopReason ?? null,
     lastError: s.lastError ?? null,
     stopRequested: s.stopRequested ?? false,
+    // Included so the HOLDING settle-timeout clock actually persists between
+    // cron ticks (it's set on a stay-put beat that changes nothing else).
+    heldSince: s.heldSince ?? null,
   });
 }
 

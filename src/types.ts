@@ -80,4 +80,11 @@ export interface RideState {
    * the current window is banked, then the ride halts instead of rolling on.
    */
   stopRequested?: boolean;
+  /**
+   * Unix seconds when we entered the CURRENT holding window. A safety-net clock:
+   * if a window never settles (a stuck market), the engine uses this to end the
+   * ride cleanly instead of polling forever — the runaway that once pinned
+   * server usage. Re-stamped every time a fresh window is entered (see engine).
+   */
+  heldSince?: number;
 }
