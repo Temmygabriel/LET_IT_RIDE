@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import type { Asset, Direction, IntervalSec, Guardrails } from "../../src/types.ts";
 import { evaluateGuardrails } from "../../src/rules.ts";
-import { startRide, RUNNER_CONFIGURED } from "../api.ts";
+import { startRide, RUNNER_CONFIGURED, type ApiError } from "../api.ts";
 import { money, assetLabel, intervalLabel } from "../format.ts";
 
 /** Setup screen — pick the bet, then set the seatbelt (the real centerpiece). */
@@ -63,6 +63,15 @@ export function Setup({ onStarted }: { onStarted: (id: string) => void }) {
       });
       onStarted(id);
     } catch (err) {
+      // A 409 means a ride is already active — the runner hands back that ride's
+      // id, so we hop straight into it instead of dead-ending on an error. This is
+      // the "take me back to my active ride" path.
+      const e = err as ApiError;
+      const activeId = (e?.body as { id?: string } | undefined)?.id;
+      if (e?.status === 409 && typeof activeId === "string") {
+        onStarted(activeId);
+        return;
+      }
       setError(err instanceof Error ? err.message : String(err));
       setSubmitting(false);
     }

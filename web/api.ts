@@ -34,7 +34,15 @@ export interface RidesList {
   rides: RideEnvelope[];
 }
 
-/** Small typed fetch wrapper: JSON in, JSON out, errors surfaced as thrown Error. */
+/** An error from the runner that also carries the HTTP status + parsed body, so
+ *  callers can react to specifics — e.g. a 409 "ride already active" includes
+ *  that active ride's id (so the UI can jump straight into it). */
+export interface ApiError extends Error {
+  status?: number;
+  body?: unknown;
+}
+
+/** Small typed fetch wrapper: JSON in, JSON out, errors surfaced as thrown ApiError. */
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -54,7 +62,10 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const data: unknown = text ? JSON.parse(text) : {};
   if (!res.ok) {
     const msg = (data as { error?: string })?.error ?? `Request failed (${res.status})`;
-    throw new Error(msg);
+    const err = new Error(msg) as ApiError;
+    err.status = res.status;
+    err.body = data;
+    throw err;
   }
   return data as T;
 }
