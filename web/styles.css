@@ -166,6 +166,10 @@ code {
 /* ---- buttons --------------------------------------------------------- */
 
 .btn {
+  /* used on <button> AND on <a> (e.g. the share card's "Start your own ride").
+     anchors are display:inline by default, which ignores width + vertical margin
+     and lets padding paint over neighbouring text — so pin inline-block here. */
+  display: inline-block;
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 15px;

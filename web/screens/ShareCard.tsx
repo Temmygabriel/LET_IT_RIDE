@@ -86,11 +86,15 @@ export function ShareCard() {
   const up = net >= 0;
   const mult = p.start > 0 ? p.pot / p.start : 0;
 
+  const isError = p.status === "error";
   const title = `${look.emoji} ${look.headline} — ${p.asset} ${dir.word}`;
-  const desc =
-    p.status === "riding"
-      ? `Riding ${money(p.pot)} on ${p.asset} ${dir.word} (from ${money(p.start)}). Auto cash-out and stop-loss are on the whole time.`
-      : `${money(p.start)} rode ${p.round} auto-rolled window${p.round === 1 ? "" : "s"} on ${p.asset} ${dir.word}, then stopped itself at a preset limit. Discipline is the win.`;
+  const desc = p.status === "riding"
+    ? `Riding ${money(p.pot)} on ${p.asset} ${dir.word} (from ${money(p.start)}). Auto cash-out and stop-loss are on the whole time.`
+    : isError
+      ? `A hands-off ${p.asset} ${dir.word} ride that hit a snag before finishing — the funds are safe on-chain, nothing was lost.`
+      : p.round === 0
+        ? `${money(p.start)} on ${p.asset} ${dir.word}: the very first window didn't land, so the ride ended right away. Only the ${money(p.start)} start was ever at risk.`
+        : `${money(p.start)} rode ${p.round} auto-rolled window${p.round === 1 ? "" : "s"} on ${p.asset} ${dir.word}, then stopped itself at a preset limit. Discipline is the win.`;
 
   // Give crawlers (and the tab) a per-ride title + blurb.
   useEffect(() => {
@@ -138,7 +142,11 @@ export function ShareCard() {
         <p className="share-sub muted">
           {p.status === "riding"
             ? `Winnings roll into each new ${p.asset} window on their own — and stop the moment a limit is hit.`
-            : `Rolled across ${p.round} ${p.asset} window${p.round === 1 ? "" : "s"} on its own, then stopped itself at a limit set before the first bet.`}
+            : isError
+              ? `The ride hit a snag before it could finish. The funds sit safe on-chain — nothing was lost.`
+              : p.round === 0
+                ? `The very first window didn't land, so the ride ended right away — only the starting stake was ever at risk.`
+                : `Rolled across ${p.round} ${p.asset} window${p.round === 1 ? "" : "s"} on its own, then stopped itself at a limit set before the first bet.`}
         </p>
 
         <a className="btn btn-primary btn-big" href="/">

@@ -53,6 +53,28 @@ const chain = defineChain({
 // On-chain MarketStatus enum (ec-core/markets.ts). Only "Trading" accepts orders.
 const STATUS = ["Listed", "Trading", "Locked", "Settling", "Resolved", "Voided"];
 
+// The public testnet has brief hiccups (indexer/RPC/WS). A single transient blip
+// shouldn't fail CI and email a false alarm, so retry a read a few times before
+// giving up. Purely a resilience wrapper — the test still fails if the foundation
+// is genuinely down after several tries.
+async function withRetry(label, fn, tries = 3, delayMs = 4000) {
+  let lastErr;
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const more = attempt < tries;
+      console.log(
+        `  … ${label} attempt ${attempt}/${tries} failed: ${err?.message ?? err}` +
+          (more ? ` — retrying in ${delayMs / 1000}s` : ""),
+      );
+      if (more) await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
+}
+
 async function main() {
   console.log(`→ Connecting to Somnia testnet (chainId ${CHAIN_ID})…`);
   const exchange = new SomniaMarkets({
@@ -66,7 +88,9 @@ async function main() {
 
   try {
     console.log("→ Loading markets from the indexer…");
-    const all = Object.values(await exchange.loadMarkets(true));
+    const all = Object.values(
+      await withRetry("load markets", () => exchange.loadMarkets(true)),
+    );
     const binary = all.filter((m) => m.type === "binary");
     const live = binary.filter((m) => m.active);
 
@@ -98,7 +122,10 @@ async function main() {
     const first = live[0];
     if (first) {
       console.log(`→ Reading on-chain snapshot for ${first.symbol}…`);
-      const oc = await exchange.client.getMarketOnchain(first.info.marketId);
+      const oc = await withRetry(
+        "read snapshot",
+        () => exchange.client.getMarketOnchain(first.info.marketId),
+      );
       const exp = oc.expiry ? Number(oc.expiry) : 0;
       console.log("✓ On-chain snapshot:");
       console.log(`    status         : ${STATUS[oc.status] ?? oc.status} (${oc.status})`);

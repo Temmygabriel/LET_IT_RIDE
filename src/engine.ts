@@ -226,10 +226,25 @@ export class RideEngine {
     }
 
     if (!marketId || !pool) {
-      throw new Error(
-        `no tradeable ${asset} ${intervalSec}s window on operator ${operatorId} right now`,
-      );
+      // No window is open *this instant*. Windows rotate every intervalSec, so a
+      // short gap between one closing and the next opening is normal — landing in
+      // it is not a failure. Stay IDLE and let the next tick try again; a window
+      // reopens within one interval. Only give up if we've been waiting far
+      // longer than a couple of windows, which means a real outage, not a gap.
+      const waitingSince = this.state.waitingSince ?? nowSec();
+      this.state.waitingSince = waitingSince;
+      if (nowSec() - waitingSince > intervalSec * 2 + 120) {
+        throw new Error(
+          `no ${asset} ${intervalSec}s window has opened on operator ${operatorId} ` +
+            `for a while — the testnet may be quiet. Your funds are safe; start a fresh ride to try again.`,
+        );
+      }
+      // Stay put; the cron re-enters beatIdle on its next pass and tries again.
+      this.touch("IDLE");
+      return;
     }
+    // A tradeable window is open — clear the "waiting for a window" clock.
+    this.state.waitingSince = undefined;
 
     // First beat of THIS ride: snapshot the collateral already in the wallet
     // that isn't part of the ride. On a dedicated wallet that's ~0; on the

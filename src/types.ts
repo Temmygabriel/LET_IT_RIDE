@@ -94,4 +94,13 @@ export interface RideState {
    * reflects only this ride's stake + winnings — not the entire wallet.
    */
   baselineCollateral?: number;
+  /**
+   * Unix seconds when we first found NO open window while trying to place a bet.
+   * A momentary gap between windows is normal (they rotate every intervalSec), so
+   * the engine stays IDLE and retries next tick instead of failing. This clock
+   * bounds that wait: if it runs far past a couple of windows, the ride gives up
+   * with a clear message rather than waiting forever. Cleared the moment a
+   * tradeable window is found. (Persisted like heldSince — see store.ts.)
+   */
+  waitingSince?: number;
 }

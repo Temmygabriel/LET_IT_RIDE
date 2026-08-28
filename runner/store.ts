@@ -64,6 +64,9 @@ export function rideSignature(s: RideState): string {
     // Included so the HOLDING settle-timeout clock actually persists between
     // cron ticks (it's set on a stay-put beat that changes nothing else).
     heldSince: s.heldSince ?? null,
+    // Same reason: the "waiting for a window to open" clock is set on a stay-put
+    // IDLE beat, and must persist for its give-up timeout to accumulate.
+    waitingSince: s.waitingSince ?? null,
   });
 }
 
