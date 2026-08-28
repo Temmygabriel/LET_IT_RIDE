@@ -59,9 +59,15 @@ Everything runs on free infrastructure. Nothing runs on your own machine.
 
 The engine is written as a single portable TypeScript state machine so the exact same logic can be type-checked in CI, run on a scheduled cloud runner, or run in a browser tab.
 
-### Why a "ride wallet"?
+### Why a "ride wallet"? (and about custody)
 
-For the auto-roll to survive you closing your laptop, *something* always-on has to place the next bet. That something is a small always-on cloud runner (Deno Deploy). Rather than hand it your real wallet, you fund a **small capped ride wallet** — bounded, stoppable, and withdrawable at any time. It's an honest trade-off, clearly framed: the most you can ever put at risk is what you load into it.
+For the auto-roll to survive you closing your laptop, *something* always-on has to place the next bet. A browser tab can't — close it and the ride dies. So an always-on cloud runner (Deno Deploy) holds the keys and does the signing.
+
+**In this hackathon demo, every ride uses one shared, pre-funded testnet wallet.** That's a deliberate choice, not a shortcut: anyone — including a judge — can start a real ride in one click, with zero setup, no wallet pop-ups, and no test tokens to go source first. It's all testnet play-money (tUSDC), so there's nothing real at stake, and the runner allows one active ride at a time so demos don't collide.
+
+**In production, each user gets their own runner-managed session wallet:** you deposit what you want to ride with, the runner signs *only* these Up/Down bets on your behalf, and you withdraw any time. The most you can ever put at risk is what you load in — your main wallet is never exposed. A natural next step is a **session key** (a scoped, revocable permission): you keep full custody in your own wallet, and the runner is allowed to sign only these specific bets, nothing else.
+
+The honest trade-off, stated plainly: **auto-rolling requires an always-on signer.** We make that signer small, capped, and revocable — never your main wallet.
 
 ## Tech
 
@@ -77,8 +83,8 @@ This is an active hackathon build. Current state:
 - ✅ **Connects to Somnia testnet** and reads live BTC/ETH Up/Down markets
 - ✅ **Read-only smoke test runs green in CI** on every push (see [`.github/workflows/smoke.yml`](.github/workflows/smoke.yml))
 - ✅ **Roll engine** (find → place → watch → claim → decide → roll) — type-checked in CI
-- ✅ **Always-on runner** (Deno Deploy) — cron auto-roll + HTTP API for the frontend, built with a `deno check` CI job ([`.github/workflows/runner.yml`](.github/workflows/runner.yml)); wiring the live deploy
-- 🚧 **Frontend** (setup / live view / stop) — next
+- ✅ **Always-on runner** live on Deno Deploy — cron auto-roll + HTTP API, built with a `deno check` CI job ([`.github/workflows/runner.yml`](.github/workflows/runner.yml))
+- ✅ **Frontend** live on Vercel — set up a ride, watch it live, stop it, share the result
 
 ## Running the smoke test
 

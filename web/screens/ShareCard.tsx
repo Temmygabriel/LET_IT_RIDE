@@ -6,7 +6,7 @@
 
 import { useEffect } from "react";
 import type { Asset, Direction } from "../../src/types.ts";
-import { assetLabel, directionLook, money } from "../format.ts";
+import { directionLook, money } from "../format.ts";
 
 interface Shared {
   asset: Asset;
@@ -89,8 +89,8 @@ export function ShareCard() {
   const title = `${look.emoji} ${look.headline} — ${p.asset} ${dir.word}`;
   const desc =
     p.status === "riding"
-      ? `Round ${p.round}, pot riding at ${money(p.pot)} (from ${money(p.start)}). Auto cash-out + stop-loss are on.`
-      : `Ended at ${money(p.pot)} from ${money(p.start)} over ${p.round} window${p.round === 1 ? "" : "s"}. Discipline is the win.`;
+      ? `Riding ${money(p.pot)} on ${p.asset} ${dir.word} (from ${money(p.start)}). Auto cash-out and stop-loss are on the whole time.`
+      : `${money(p.start)} rode ${p.round} auto-rolled window${p.round === 1 ? "" : "s"} on ${p.asset} ${dir.word}, then stopped itself at a preset limit. Discipline is the win.`;
 
   // Give crawlers (and the tab) a per-ride title + blurb.
   useEffect(() => {
@@ -110,6 +110,10 @@ export function ShareCard() {
           <span className="brand-mark">🎢</span>
           <span className="brand-name">Let It Ride</span>
         </div>
+
+        <p className="share-tagline muted small">
+          A hands-off way to bet crypto up or down — with a seatbelt that decides when to walk away.
+        </p>
 
         <div className={`dir-badge ${dir.tone}`}>
           <span className="dir-arrow">{dir.arrow}</span>
@@ -132,8 +136,9 @@ export function ShareCard() {
         </div>
 
         <p className="share-sub muted">
-          {p.round} window{p.round === 1 ? "" : "s"} ridden on {assetLabel(p.asset)} — with a
-          seatbelt on the whole time.
+          {p.status === "riding"
+            ? `Winnings roll into each new ${p.asset} window on their own — and stop the moment a limit is hit.`
+            : `Rolled across ${p.round} ${p.asset} window${p.round === 1 ? "" : "s"} on its own, then stopped itself at a limit set before the first bet.`}
         </p>
 
         <a className="btn btn-primary btn-big" href="/">

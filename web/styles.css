@@ -739,3 +739,18 @@ code {
   text-align: center;
   margin-top: 16px;
 }
+.share-tagline {
+  max-width: 42ch;
+  margin: 0 auto 6px;
+}
+
+/* plain-language explainers — the "so a layperson gets it" lines */
+.summary-plain {
+  max-width: 50ch;
+  margin: 0 auto 6px;
+  font-size: 15px;
+}
+.ride-how {
+  max-width: 44ch;
+  margin: 10px auto 0;
+}

@@ -16,6 +16,18 @@ export function Summary({ state, onReset }: { state: RideState; onReset: () => v
   // The share card reads a status token: "error", or the lowercased stop reason.
   const status = isError ? "error" : (state.stopReason ?? "ended").toLowerCase();
 
+  // A plain-language, real-numbers recap so anyone gets what just happened.
+  const wonWord = state.round === 1 ? "window" : "windows";
+  const plain = isError
+    ? ""
+    : state.round === 0
+      ? state.stopReason === "USER_STOP"
+        ? `You stopped during your very first window — nothing rolled yet, so you keep what you put in.`
+        : `Your very first window didn't land, so the ride ended right away. You only ever risked your ${money(config.startStake)} start.`
+      : state.stopReason === "LOST"
+        ? `You won ${state.round} ${wonWord} in a row — then the next one didn't land. A lost window ends the ride, so there's nothing left to roll. You never risked more than your ${money(config.startStake)} start.`
+        : `You let ${money(config.startStake)} ride through ${state.round} winning ${wonWord} in a row and it grew to ${money(state.pot)}. Then your seatbelt banked it — exactly as you set it up.`;
+
   const [copied, setCopied] = useState(false);
   const share = async () => {
     const url = buildShareUrl({
@@ -48,24 +60,26 @@ export function Summary({ state, onReset }: { state: RideState; onReset: () => v
             : outcome.blurb}
         </p>
 
+        {plain && <p className="summary-plain">{plain}</p>}
+
         {isError && state.lastError && (
           <p className="summary-error">{state.lastError}</p>
         )}
 
         <div className="summary-stats">
           <div className="stat">
-            <span className="stat-k">Final pot</span>
+            <span className="stat-k">Ended with</span>
             <span className="stat-v">{money(state.pot)}</span>
           </div>
           <div className="stat">
-            <span className="stat-k">Net</span>
+            <span className="stat-k">{up ? "Profit" : "Loss"}</span>
             <span className={`stat-v ${up ? "up" : "down"}`}>
               {up ? "+" : "−"}
               {money(Math.abs(net))}
             </span>
           </div>
           <div className="stat">
-            <span className="stat-k">Rounds ridden</span>
+            <span className="stat-k">Windows won</span>
             <span className="stat-v">{state.round}</span>
           </div>
         </div>

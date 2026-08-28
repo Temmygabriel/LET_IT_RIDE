@@ -90,9 +90,9 @@ export function phaseLook(phase: RidePhase): PhaseLook {
     case "HOLDING":
       return { label: "Riding this window", hint: "In a position — waiting for it to settle.", busy: true };
     case "CLAIMING":
-      return { label: "Collecting winnings", hint: "Redeeming the settled window…", busy: true };
+      return { label: "You won this window! 🎉", hint: "Collecting your winnings from the chain…", busy: true };
     case "ROLLING":
-      return { label: "Letting it ride", hint: "Rolling the whole pot into the next window…", busy: true };
+      return { label: "Letting it ride", hint: "Rolling your bigger pot into the next window — automatically.", busy: true };
     case "STOPPED":
       return { label: "Ride complete", hint: "", busy: false };
     case "ERROR":

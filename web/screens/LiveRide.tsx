@@ -80,9 +80,15 @@ export function LiveRide({
           </div>
         )}
 
+        <p className="ride-how muted small">
+          {state.round === 0
+            ? "You're on your first window. Win it and your whole pot rolls straight into the next one — hands-off. Lose it and the ride ends here."
+            : "Each win rolls your whole pot into the next window on its own. It keeps going until a seatbelt stops it — or a window doesn't land."}
+        </p>
+
         <div className="live-meta">
           <div className="meta-cell">
-            <span className="meta-k">Round</span>
+            <span className="meta-k">Windows won</span>
             <span className="meta-v">{state.round}</span>
           </div>
           <div className="meta-cell">

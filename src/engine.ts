@@ -231,6 +231,22 @@ export class RideEngine {
       );
     }
 
+    // First beat of THIS ride: snapshot the collateral already in the wallet
+    // that isn't part of the ride. On a dedicated wallet that's ~0; on the
+    // shared/pre-funded demo wallet it's the other funds (~9,900 tUSDC). From
+    // here the pot is (walletBalance − baseline), so it tracks only this ride's
+    // stake + winnings. Without it the pot would read the whole wallet and the
+    // guardrails would misfire — e.g. cash-out tripping on the very first win.
+    if (this.state.baselineCollateral == null) {
+      const collateral = ADDRESSES.collateral;
+      if (!collateral) {
+        throw new Error("no collateral address configured");
+      }
+      const balanceRaw = await client.getErc20Balance(collateral, wallet);
+      this.state.baselineCollateral =
+        toHuman(balanceRaw, this.decimals) - this.state.pot;
+    }
+
     // Size the bet: the whole pot rides (nextStake), converted to raw units.
     const stakeHuman = nextStake(this.state.pot);
     const stakeRaw = fromHuman(stakeHuman, this.decimals);
@@ -412,7 +428,11 @@ export class RideEngine {
       throw new Error("no collateral address configured");
     }
     const raw = await this.exchange.client.getErc20Balance(collateral, wallet);
-    this.state.pot = toHuman(raw, this.decimals);
+    // Subtract the baseline — funds that were already in the wallet and aren't
+    // this ride's — so the pot is just stake + winnings, floored at 0. On a
+    // dedicated wallet the baseline is ~0 and this is simply the balance.
+    const baseline = this.state.baselineCollateral ?? 0;
+    this.state.pot = Math.max(0, toHuman(raw, this.decimals) - baseline);
     this.state.updatedAt = nowSec();
   }
 

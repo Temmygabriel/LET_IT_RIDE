@@ -87,4 +87,11 @@ export interface RideState {
    * server usage. Re-stamped every time a fresh window is entered (see engine).
    */
   heldSince?: number;
+  /**
+   * Collateral already in the ride wallet at the first bet that isn't part of
+   * this ride (≈0 on a dedicated wallet; the other funds on the shared demo
+   * wallet). Captured once, then the pot is (walletBalance − baseline) so it
+   * reflects only this ride's stake + winnings — not the entire wallet.
+   */
+  baselineCollateral?: number;
 }
